@@ -32,10 +32,14 @@ function getPreferredXmakePath(): string {
   if (extension) {
     void extension.activate();
   }
+
   return configured;
 }
 
-function resolveTaskArgs(taskName: XmakeTaskDefinition['task'], definition: XmakeTaskDefinition): string[] {
+function resolveTaskArgs(
+  taskName: XmakeTaskDefinition['task'],
+  definition: XmakeTaskDefinition
+): string[] {
   if (definition.args && definition.args.length > 0) {
     return [...definition.args];
   }
