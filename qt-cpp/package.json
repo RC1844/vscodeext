@@ -58,7 +58,8 @@
     "onDebugInitialConfigurations",
     "onDebugDynamicConfigurations:cmake",
     "workspaceContains:**/CMakeLists.txt",
-    "workspaceContains:.vscode/cmake-kits.json"
+    "workspaceContains:.vscode/cmake-kits.json",
+    "workspaceContains:**/xmake.lua"
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",
@@ -97,7 +98,8 @@
         "qt-cpp.xmakePath": {
           "type": "string",
           "default": "xmake",
-          "description": "Full path to the xmake executable. Defaults to the xmake binary in PATH."
+          "markdownDescription": "Path to the xmake executable. When `xmake.io.xmake-vscode` is installed, the extension prefers it. Otherwise the value is used as a fallback.",
+          "scope": "machine-overridable"
         },
         "qt-cpp.xmakeBuildArgs": {
           "type": "array",
@@ -107,7 +109,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Default arguments used when running the xmake build task."
+          "description": "Default arguments for the xmake build task."
         },
         "qt-cpp.xmakeCleanArgs": {
           "type": "array",
@@ -117,7 +119,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Default arguments used when running the xmake clean task."
+          "description": "Default arguments for the xmake clean task."
         },
         "qt-cpp.xmakeRunArgs": {
           "type": "array",
@@ -127,7 +129,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Default arguments used when running the xmake run task."
+          "description": "Default arguments for the xmake run task."
         }
       }
     },
@@ -342,7 +344,8 @@
   ],
   "extensionDependencies": [
     "theqtcompany.qt-core",
-    "ms-vscode.cmake-tools"
+    "ms-vscode.cmake-tools",
+    "xmake.io.xmake-vscode"
   ],
   "scripts": {
     "vscode:prepublish": "cross-env NODE_ENV=production node ./esbuild.mjs && git rev-parse HEAD > commit",
