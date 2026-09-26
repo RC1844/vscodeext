@@ -25,7 +25,8 @@
     "Qt",
     "C++",
     "CMake",
-    "scan"
+    "scan",
+    "xmake"
   ],
   "qna": "marketplace",
   "pricing": "Free",
@@ -74,7 +75,7 @@
         "qt-cpp.doNotAskForCMakePath": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Do not ask for setting [`#cmake.cmakePath#`](https://vector-of-bool.github.io/docs/vscode-cmake-tools/settings.html#cmake-cmakepath).\n\nCMake Tools search the PATH environment variable, and make some \n\neducated guesses on where to find CMake.",
+          "markdownDescription": "Do not ask for setting [`#cmake.cmakePath#`](https://vector-of-bool.github.io/docs/vscode-cmake-tools/settings.html#cmake-cmakepath).\n\nCMake Tools search the PATH for CMake by default, but when the project uses a bundled copy of CMake from Qt Tools, the extension prompts for a path. This setting disables the prompt.",
           "scope": "machine"
         },
         "qt-cpp.doNotWarnMissingSourceDir": {
@@ -90,8 +91,43 @@
         "qt-cpp.disableAutoKitGenerationOnOpen": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Disable automatic CMake kit generation on extension activation.\n\nWhen enabled, the extension will not automatically scan and update `cmake-kits.json` when VS Code starts. Kits will still be updated when you manually change Qt settings or run the `Qt: Scan for Qt Kits` command.\n\nThis is useful if you manage your kits manually or check `cmake-kits.json` into version control.",
+          "markdownDescription": "Disable automatic CMake kit generation on extension activation.\n\nWhen enabled, the extension will not automatically scan and update `cmake-kits.json` when VS Code opens a workspace.",
           "scope": "machine-overridable"
+        },
+        "qt-cpp.xmakePath": {
+          "type": "string",
+          "default": "xmake",
+          "description": "Full path to the xmake executable. Defaults to the xmake binary in PATH."
+        },
+        "qt-cpp.xmakeBuildArgs": {
+          "type": "array",
+          "default": [
+            "build"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Default arguments used when running the xmake build task."
+        },
+        "qt-cpp.xmakeCleanArgs": {
+          "type": "array",
+          "default": [
+            "clean"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Default arguments used when running the xmake clean task."
+        },
+        "qt-cpp.xmakeRunArgs": {
+          "type": "array",
+          "default": [
+            "run"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Default arguments used when running the xmake run task."
         }
       }
     },
@@ -274,6 +310,34 @@
   "taskDefinitions": [
     {
       "type": "Qt"
+    },
+    {
+      "type": "QtXMake",
+      "required": [
+        "task"
+      ],
+      "properties": {
+        "task": {
+          "type": "string",
+          "enum": [
+            "build",
+            "clean",
+            "run"
+          ]
+        },
+        "xmakePath": {
+          "type": "string"
+        },
+        "projectDir": {
+          "type": "string"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
     }
   ],
   "extensionDependencies": [

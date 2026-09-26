@@ -1,32 +1,8 @@
-// Copyright (C) 2023 The Qt Company Ltd.
+// Copyright (C) 2024 The Qt Company Ltd.
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR LGPL-3.0-only
 
 import * as vscode from 'vscode';
 
-import {
-  CoreAPI,
-  getCoreApi,
-  createLogger,
-  initLogger,
-  QtWorkspaceConfigMessage,
-  CoreKey,
-  QtAdditionalPath,
-  telemetry,
-  compareVersions
-} from 'qt-lib';
-import { registerMinGWgdbCommand } from '@cmd/mingw-gdb';
-import { registerResetCommand } from '@cmd/reset-qt-ext';
-import { registerNatvisCommand } from '@cmd/natvis';
-import { registerScanForQtKitsCommand } from '@cmd/scan-qt-kits';
-import { registerSourceDirectoryCommand } from '@cmd/source-directory';
-import {
-  registerbuildDirectoryName,
-  registerlaunchTargetFilenameWithoutExtension,
-  registerKitDirectoryCommand,
-  qtDirCommand,
-  qpaPlatformPluginPathCommand,
-  qmlImportPathCommand
-} from '@cmd/launch-variables';
 import {
   createCppProject,
   CppProjectManager,
@@ -35,13 +11,14 @@ import {
 } from '@/project';
 import { KitManager, tryToUseCMakeFromQtTools } from '@/kit-manager';
 import { wasmStartTaskProvider, WASMStartTaskProvider } from '@task/wasm-start';
+import { xmakeTaskProvider, XmakeTaskProvider } from '@task/xmake';
 import { EXTENSION_ID } from '@/constants';
 
 export let kitManager: KitManager;
 export let projectManager: CppProjectManager;
 export let coreAPI: CoreAPI | undefined;
 
-let taskProvider: vscode.Disposable | undefined;
+const taskProviders: vscode.Disposable[] = [];
 
 const logger = createLogger('extension');
 
@@ -77,10 +54,14 @@ export async function activate(context: vscode.ExtensionContext) {
   );
   telemetry.sendEvent(`activated`);
 
-  taskProvider = vscode.tasks.registerTaskProvider(
-    WASMStartTaskProvider.WASMStartType,
-    wasmStartTaskProvider
+  taskProviders.push(
+    vscode.tasks.registerTaskProvider(
+      WASMStartTaskProvider.WASMStartType,
+      wasmStartTaskProvider
+    ),
+    vscode.tasks.registerTaskProvider(XmakeTaskProvider.Type, xmakeTaskProvider)
   );
+  context.subscriptions.push(...taskProviders);
 
   coreAPI?.onValueChanged(async (message) => {
     logger.info('Received config change:', message.config as unknown as string);
@@ -112,113 +93,7 @@ export function deactivate() {
   logger.info(`Deactivating ${EXTENSION_ID}`);
   telemetry.dispose();
   projectManager.dispose();
-  if (taskProvider) {
+  for (const taskProvider of taskProviders) {
     taskProvider.dispose();
   }
-}
-
-export async function initConfigValues() {
-  for (const project of projectManager.getProjects()) {
-    await project.initConfigValues();
-  }
-}
-
-async function processMessage(message: QtWorkspaceConfigMessage) {
-  // check if workspace folder is a string
-  let project: CppProject | undefined;
-  if (typeof message.workspaceFolder === 'string') {
-    if (message.workspaceFolder !== CoreKey.GLOBAL_WORKSPACE) {
-      throw new Error('Invalid global workspace');
-    }
-  } else {
-    project = projectManager.getProject(message.workspaceFolder);
-    if (!project) {
-      logger.error('Project not found');
-      return;
-    }
-  }
-  for (const key of message.config.keys()) {
-    if (key === CoreKey.QT_INSTALLATION_ROOT) {
-      const value =
-        coreAPI?.getValue<string>(
-          message.workspaceFolder,
-          CoreKey.QT_INSTALLATION_ROOT
-        ) ?? '';
-      await kitManager.onQtInstallationRootChanged(value, project?.folder);
-      continue;
-    }
-
-    if (key === CoreKey.ADDITIONAL_QT_PATHS) {
-      const additionalQtPaths =
-        coreAPI?.getValue<QtAdditionalPath[]>(
-          message.workspaceFolder,
-          CoreKey.ADDITIONAL_QT_PATHS
-        ) ?? [];
-      await kitManager.onQtPathsChanged(additionalQtPaths, project?.folder);
-      continue;
-    }
-
-    if (key === CoreKey.QT_TOOLS_PATHS) {
-      // Shared CMake/Ninja paths arrived (or changed); pick up the bundled
-      // CMake if the cmake command is still missing.
-      void tryToUseCMakeFromQtTools();
-      continue;
-    }
-  }
-}
-
-function isAnyOfProjectsUsingKits(): boolean {
-  return Array.from(projectManager.getProjects()).some(
-    (project) => project.type === CppProjectType.Kit
-  );
-}
-
-function checkCMakeToolsVersion(): void {
-  const cmakeExt = vscode.extensions.getExtension('ms-vscode.cmake-tools');
-  if (!cmakeExt) {
-    logger.warn('CMake Tools extension not found');
-    return;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const version = cmakeExt.packageJSON.version as string;
-  const requiredVersion = '1.22.16';
-
-  // compareVersions returns: -1 if version1 < version2, 0 if equal, 1 if version1 > version2
-  const isOutdated = compareVersions(version, requiredVersion) < 0;
-
-  if (!isOutdated) {
-    return;
-  }
-
-  const config = vscode.workspace.getConfiguration(EXTENSION_ID);
-  const disableWarning = config.get<boolean>(
-    'doNotWarnOutdatedCMakeTools',
-    false
-  );
-  if (disableWarning) {
-    return;
-  }
-
-  const message = `CMake Tools ${version} is outdated. Version ${requiredVersion} or later is required for CMake Presets support.`;
-  const updateBtn = 'Update';
-  const doNotShowBtn = 'Do not show again';
-  logger.error(message);
-
-  void vscode.window
-    .showErrorMessage(message, updateBtn, doNotShowBtn)
-    .then((selection) => {
-      if (selection === updateBtn) {
-        void vscode.commands.executeCommand(
-          'extension.open',
-          'ms-vscode.cmake-tools'
-        );
-      } else if (selection === doNotShowBtn) {
-        void config.update(
-          'doNotWarnOutdatedCMakeTools',
-          true,
-          vscode.ConfigurationTarget.Global
-        );
-      }
-    });
 }
