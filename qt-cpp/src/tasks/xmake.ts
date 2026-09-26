@@ -5,6 +5,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+const XMAKE_VSCODE_EXTENSION_ID = 'xmake.io.xmake-vscode';
+
 export interface XmakeTaskDefinition extends vscode.TaskDefinition {
   task: 'build' | 'clean' | 'run';
   xmakePath?: string;
@@ -18,6 +20,19 @@ function getConfiguredXmakePath(): string {
     .get<string>('xmakePath', '')
     .trim();
   return configured || 'xmake';
+}
+
+function getPreferredXmakePath(): string {
+  const configured = getConfiguredXmakePath();
+  if (configured && configured !== 'xmake') {
+    return configured;
+  }
+
+  const extension = vscode.extensions.getExtension(XMAKE_VSCODE_EXTENSION_ID);
+  if (extension) {
+    void extension.activate();
+  }
+  return configured;
 }
 
 function resolveTaskArgs(taskName: XmakeTaskDefinition['task'], definition: XmakeTaskDefinition): string[] {
@@ -59,8 +74,10 @@ export class XmakeTaskProvider implements vscode.TaskProvider {
   ): vscode.Task {
     const cwd = definition.projectDir
       ? definition.projectDir
-      : folder?.uri.fsPath ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-    const command = definition.xmakePath?.trim() || getConfiguredXmakePath();
+      : folder?.uri.fsPath ??
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ??
+        process.cwd();
+    const command = definition.xmakePath?.trim() || getPreferredXmakePath();
     const args = resolveTaskArgs(definition.task, definition);
 
     return new vscode.Task(
